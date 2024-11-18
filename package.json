@@ -1,0 +1,29 @@
+{
+  "name": "@hashirrao/postgresql-general-backend",
+  "version": "1.0.8",
+  "description": "A package that provides you a built-in backend for simple queries of postgresql.",
+  "main": "src/index.ts",
+  "type": "module",
+  "exports": {
+    "require": "./dist/cjs/index.cjs",
+    "import": "./src/index.js"
+  },
+  "scripts": {
+    "build:cjs": "tsc --module commonjs --outDir dist/cjs",
+    "build:esm": "tsc --module esnext --outDir dist/esm",
+    "build": "npm run build:cjs && npm run build:esm"
+  },
+  "keywords": [
+    "postgresql",
+    "data",
+    "backend"
+  ],
+  "author": "#",
+  "license": "ISC",
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
