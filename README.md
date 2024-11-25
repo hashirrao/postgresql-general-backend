@@ -8,7 +8,13 @@ A simple and efficient Node.js utility for performing CRUD operations on Postgre
 
 ```bash
 npm install @hashirrao/postgresql-general-backend
+
+or
+
+```bash
 yarn add @hashirrao/postgresql-general-backend
+
+---
 
 ### Insert Data
 Quickly add new rows to a table.
