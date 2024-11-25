@@ -8,13 +8,13 @@ A simple and efficient Node.js utility for performing CRUD operations on Postgre
 
 ```bash
 npm install @hashirrao/postgresql-general-backend
+```
 
 or
 
 ```bash
 yarn add @hashirrao/postgresql-general-backend
-
----
+```
 
 ### Insert Data
 Quickly add new rows to a table.
@@ -37,6 +37,7 @@ Permanently remove rows from the database.
 
 ```javascript
 const { insertData, getData, updateData, deleteData, hardDeleteData } = require('@hashirrao/postgresql-general-backend');
+```
 
 ### Set Up Connection
 
@@ -48,6 +49,7 @@ const connectionObj = {
     password: 'your-password',
     port: 5432,
 };
+```
 
 # Examlples
 
@@ -60,7 +62,7 @@ const data = { name: 'John Doe', email: 'john.doe@example.com' };
 insertData(connectionObj, tableName, data)
     .then(response => console.log(response))
     .catch(error => console.error(error));
-
+```
 
 ### Retrieve Data
 
@@ -68,6 +70,7 @@ insertData(connectionObj, tableName, data)
 getData(connectionObj, 'users', ['id', 'name'], [{ column_name: 'is_deleted', operation: '=', value: false }], 'name', 10, 0)
     .then(response => console.log(response))
     .catch(error => console.error(error));
+```
 
 ### Update Data
 
@@ -75,6 +78,7 @@ getData(connectionObj, 'users', ['id', 'name'], [{ column_name: 'is_deleted', op
 updateData(connectionObj, 'users', { name: 'Jane Doe' }, [{ column_name: 'id', operation: '=', value: 1 }])
     .then(response => console.log(response))
     .catch(error => console.error(error));
+```
 
 ### Soft Delete
 
@@ -82,6 +86,7 @@ updateData(connectionObj, 'users', { name: 'Jane Doe' }, [{ column_name: 'id', o
 deleteData(connectionObj, 'users', [{ column_name: 'id', operation: '=', value: 1 }])
     .then(response => console.log(response))
     .catch(error => console.error(error));
+```
 
 ### Hard Delete
 
@@ -89,4 +94,4 @@ deleteData(connectionObj, 'users', [{ column_name: 'id', operation: '=', value: 
 hardDeleteData(connectionObj, 'users', [{ column_name: 'id', operation: '=', value: 1 }])
     .then(response => console.log(response))
     .catch(error => console.error(error));
-
+```
