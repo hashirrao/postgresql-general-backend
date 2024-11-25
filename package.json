@@ -1,6 +1,6 @@
 {
   "name": "@hashirrao/postgresql-general-backend",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "A package that provides you a built-in backend for simple queries of postgresql.",
   "main": "src/index.ts",
   "type": "module",
