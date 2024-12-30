@@ -178,62 +178,6 @@ export function updateData(connectionObj: any, tableName: string, data: any, fil
 export function deleteData(connectionObj: any, tableName: string, filters: Filters[]): Promise<any> {
     return new Promise<any>(async (resolve, reject) => {
         const pool = new Pool(connectionObj);
-        const data = {
-            is_deleted: true
-        }
-        if (!filters || filters.length == 0) {
-            reject("At least one filter must be there")
-        }
-        // Define the SQL query to inserting data
-        let set_values: string = ""
-        let values: Array<string> = []
-
-        Object.keys(data).map((key, i) => {
-            set_values += `${key} = $${i + 1},`
-            // values_string += `$${i + 1},`
-            values.push(data[key])
-        })
-        const data_length = Object.keys(data)
-        set_values = set_values.replace(/,(?=[^,]*$)/, '');
-        let query = `UPDATE ${tableName} SET ${set_values}`
-        query = query + ' WHERE '
-        if (filters && filters.length) {
-            for (let i = 0; i < filters.length; i++) {
-                const element = filters[i];
-                if (i == 0) {
-                    query = query + element.column_name + ' ' + element.operation + ' ' + `$${data_length.length + i + 1}`
-                }
-                else {
-                    query = query + ' AND ' + element.column_name + ' ' + element.operation + ' ' + ` $${data_length.length + i + 1} `
-                }
-                values.push(element.value)
-            }
-        }
-        query = query + ' RETURNING *'
-        // console.log(query, values)
-        // Execute the query
-        const client = await pool.connect();
-        try {
-            const response = await client.query(query, values);
-            const resp = {
-                success: true,
-                message: "Data deleted successfully...!",
-                data: response.rows,
-            }
-            resolve(resp)
-        } catch (error) {
-            console.error('Error:', error.message);
-            reject(error)
-        }
-        finally {
-            client.release()
-        }
-    })
-}
-
-export function hardDeleteData(connectionObj: any, tableName: string, filters: Filters[]): Promise<any> {
-    return new Promise<any>(async (resolve, reject) => {
-        const pool = new Pool(connectionObj);
         if (!filters || filters.length == 0) {
             reject("At least one filter must be there")
         }

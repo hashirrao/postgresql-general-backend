@@ -80,18 +80,10 @@ updateData(connectionObj, 'users', { name: 'Jane Doe' }, [{ column_name: 'id', o
     .catch(error => console.error(error));
 ```
 
-### Soft Delete
+### Delete
 
 ```javascript
 deleteData(connectionObj, 'users', [{ column_name: 'id', operation: '=', value: 1 }])
-    .then(response => console.log(response))
-    .catch(error => console.error(error));
-```
-
-### Hard Delete
-
-```javascript
-hardDeleteData(connectionObj, 'users', [{ column_name: 'id', operation: '=', value: 1 }])
     .then(response => console.log(response))
     .catch(error => console.error(error));
 ```
