@@ -25,11 +25,8 @@ Fetch records with filtering, sorting, pagination, and column selection.
 ### Update Data
 Modify rows based on specified conditions.
 
-### Soft Delete
-Mark rows as deleted using an `is_deleted` flag.
-
 ### Hard Delete
-Permanently remove rows from the database.
+Remove rows from the database.
 
 # Usage
 
@@ -87,3 +84,8 @@ deleteData(connectionObj, 'users', [{ column_name: 'id', operation: '=', value: 
     .then(response => console.log(response))
     .catch(error => console.error(error));
 ```
+### Github
+
+Visit [GitHub][gh] for the source code.
+
+[gh]: https://github.com/hashirrao/postgresql-general-backend "GitHub Repository"

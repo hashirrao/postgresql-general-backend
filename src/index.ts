@@ -4,7 +4,7 @@ const { Pool } = pg;
 
 export interface Filters {
     column_name: string
-    operation: "=" | "!=" | "LIKE"
+    operation: "=" | "!=" | "LIKE" | "IN"
     value: any
 }
 
