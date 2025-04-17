@@ -50,17 +50,27 @@ export async function getData(connectionObj, tableName, columnNames, filters, or
             query += ' WHERE ';
             for (let i = 0; i < filters.length; i++) {
                 const element = filters[i];
-                if (i === 0) {
-                    query += `${element.column_name} ${element.operation} $${i + 1}`;
+                if (element.operation === "IN") {
+                    if (i === 0) {
+                        query += `${element.column_name} ${element.operation} ${element.value}`;
+                    }
+                    else {
+                        query += ` AND ${element.column_name} ${element.operation} ${element.value}`;
+                    }
                 }
                 else {
-                    query += ` AND ${element.column_name} ${element.operation} $${i + 1}`;
-                }
-                if (element.operation.toLowerCase() === 'like') {
-                    values.push(`%${element.value}%`);
-                }
-                else {
-                    values.push(element.value);
+                    if (i === 0) {
+                        query += `${element.column_name} ${element.operation} $${i + 1}`;
+                    }
+                    else {
+                        query += ` AND ${element.column_name} ${element.operation} $${i + 1}`;
+                    }
+                    if (element.operation.toLowerCase() === 'like') {
+                        values.push(`%${element.value}%`);
+                    }
+                    else {
+                        values.push(element.value);
+                    }
                 }
             }
         }
@@ -83,13 +93,23 @@ export async function getData(connectionObj, tableName, columnNames, filters, or
                 count_query += ' WHERE ';
                 for (let i = 0; i < filters.length; i++) {
                     const element = filters[i];
-                    if (i === 0) {
-                        count_query += `${element.column_name} ${element.operation} $${i + 1}`;
+                    if (element.operation === "IN") {
+                        if (i === 0) {
+                            count_query += `${element.column_name} ${element.operation} ${element.value}`;
+                        }
+                        else {
+                            count_query += ` AND ${element.column_name} ${element.operation} ${element.value}`;
+                        }
                     }
                     else {
-                        count_query += ` AND ${element.column_name} ${element.operation} $${i + 1}`;
+                        if (i === 0) {
+                            count_query += `${element.column_name} ${element.operation} $${i + 1}`;
+                        }
+                        else {
+                            count_query += ` AND ${element.column_name} ${element.operation} $${i + 1}`;
+                        }
+                        count_values.push(element.value);
                     }
-                    count_values.push(element.value);
                 }
             }
             const count_response = await client.query(count_query, count_values);
