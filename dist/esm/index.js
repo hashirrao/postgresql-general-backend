@@ -2,12 +2,14 @@ import pg from 'pg';
 const { Pool } = pg;
 export function insertData(connectionObj, tableName, data) {
     return new Promise(async (resolve, reject) => {
+        tableName = safeSqlString(tableName);
         const pool = new Pool(connectionObj);
         let columns = "";
         let values = [];
         let values_string = "";
         Object.keys(data).map((key, i) => {
-            columns += key + ',';
+            const safeKey = safeSqlString(key);
+            columns += safeKey + ',';
             values_string += `$${i + 1},`;
             values.push(data[key]);
         });
@@ -35,13 +37,74 @@ export function insertData(connectionObj, tableName, data) {
         }
     });
 }
+export function insertBulkData(connectionObj, items) {
+    return new Promise(async (resolve, reject) => {
+        const pool = new Pool(connectionObj);
+        if (!items || items.length === 0) {
+            return reject(new Error('No items provided for bulk insert'));
+        }
+        // Group items by table name for efficient multi-row inserts
+        const groups = {};
+        for (const it of items) {
+            if (!it || !it.table || !it.data)
+                continue;
+            const safeTableName = safeSqlString(it.table);
+            if (!groups[safeTableName])
+                groups[safeTableName] = [];
+            groups[safeTableName].push(it.data);
+        }
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            let allInserted = [];
+            for (const tableName of Object.keys(groups)) {
+                const rows = groups[tableName];
+                if (!rows || rows.length === 0)
+                    continue;
+                // Create a union of all columns present in the rows
+                const colSet = new Set();
+                rows.forEach(r => Object.keys(r).forEach(k => colSet.add(safeSqlString(k))));
+                const columns = Array.from(colSet);
+                if (columns.length === 0)
+                    continue;
+                // Build parameterized value placeholders and values array
+                const values = [];
+                const valuePlaceholders = [];
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    const rowPlaceholders = [];
+                    for (let j = 0; j < columns.length; j++) {
+                        const col = columns[j];
+                        values.push(Object.prototype.hasOwnProperty.call(row, col) ? row[col] : null);
+                        rowPlaceholders.push(`$${values.length}`);
+                    }
+                    valuePlaceholders.push(`(${rowPlaceholders.join(',')})`);
+                }
+                const query = `INSERT INTO ${tableName} (${columns.join(',')}) VALUES ${valuePlaceholders.join(',')} RETURNING *;`;
+                const response = await client.query(query, values);
+                allInserted = allInserted.concat(response.rows);
+            }
+            await client.query('COMMIT');
+            resolve({ success: true, message: 'Bulk insert successful', data: allInserted });
+        }
+        catch (error) {
+            await client.query('ROLLBACK');
+            reject(error);
+        }
+        finally {
+            client.release();
+        }
+    });
+}
 export async function getData(connectionObj, tableName, columnNames, filters, order_by, limit, offset) {
     return new Promise(async (resolve, reject) => {
+        tableName = safeSqlString(tableName);
         const pool = new Pool(connectionObj);
         let values = [];
         let query = `SELECT `;
         if (columnNames && columnNames.length > 0) {
-            query += `${columnNames.join(', ')} FROM ${tableName}`;
+            const safeColumns = columnNames.map(col => safeSqlString(col));
+            query += `${safeColumns.join(', ')} FROM ${tableName}`;
         }
         else {
             query += `* FROM ${tableName}`;
@@ -50,20 +113,21 @@ export async function getData(connectionObj, tableName, columnNames, filters, or
             query += ' WHERE ';
             for (let i = 0; i < filters.length; i++) {
                 const element = filters[i];
+                const safeColName = safeSqlString(element.column_name);
                 if (element.operation === "IN") {
                     if (i === 0) {
-                        query += `${element.column_name} ${element.operation} ${element.value}`;
+                        query += `${safeColName} ${element.operation} ${element.value}`;
                     }
                     else {
-                        query += ` AND ${element.column_name} ${element.operation} ${element.value}`;
+                        query += ` AND ${safeColName} ${element.operation} ${element.value}`;
                     }
                 }
                 else {
                     if (i === 0) {
-                        query += `${element.column_name} ${element.operation} $${i + 1}`;
+                        query += `${safeColName} ${element.operation} $${i + 1}`;
                     }
                     else {
-                        query += ` AND ${element.column_name} ${element.operation} $${i + 1}`;
+                        query += ` AND ${safeColName} ${element.operation} $${i + 1}`;
                     }
                     if (element.operation.toLowerCase() === 'like') {
                         values.push(`%${element.value}%`);
@@ -75,7 +139,8 @@ export async function getData(connectionObj, tableName, columnNames, filters, or
             }
         }
         if (order_by) {
-            query += ` ORDER BY ${order_by} ASC`;
+            const safeOrderBy = safeSqlString(order_by);
+            query += ` ORDER BY ${safeOrderBy} ASC`;
         }
         if (limit) {
             query += ` LIMIT ${limit}`;
@@ -93,20 +158,21 @@ export async function getData(connectionObj, tableName, columnNames, filters, or
                 count_query += ' WHERE ';
                 for (let i = 0; i < filters.length; i++) {
                     const element = filters[i];
+                    const safeColName = safeSqlString(element.column_name);
                     if (element.operation === "IN") {
                         if (i === 0) {
-                            count_query += `${element.column_name} ${element.operation} ${element.value}`;
+                            count_query += `${safeColName} ${element.operation} ${element.value}`;
                         }
                         else {
-                            count_query += ` AND ${element.column_name} ${element.operation} ${element.value}`;
+                            count_query += ` AND ${safeColName} ${element.operation} ${element.value}`;
                         }
                     }
                     else {
                         if (i === 0) {
-                            count_query += `${element.column_name} ${element.operation} $${i + 1}`;
+                            count_query += `${safeColName} ${element.operation} $${i + 1}`;
                         }
                         else {
-                            count_query += ` AND ${element.column_name} ${element.operation} $${i + 1}`;
+                            count_query += ` AND ${safeColName} ${element.operation} $${i + 1}`;
                         }
                         count_values.push(element.value);
                     }
@@ -134,6 +200,7 @@ export async function getData(connectionObj, tableName, columnNames, filters, or
 }
 export function updateData(connectionObj, tableName, data, filters) {
     return new Promise(async (resolve, reject) => {
+        tableName = safeSqlString(tableName);
         const pool = new Pool(connectionObj);
         if (!filters || filters.length == 0) {
             reject("At least one filter must be there");
@@ -142,7 +209,8 @@ export function updateData(connectionObj, tableName, data, filters) {
         let set_values = "";
         let values = [];
         Object.keys(data).map((key, i) => {
-            set_values += `${key} = $${i + 1},`;
+            const safeKey = safeSqlString(key);
+            set_values += `${safeKey} = $${i + 1},`;
             // values_string += `$${i + 1},`
             values.push(data[key]);
         });
@@ -153,11 +221,12 @@ export function updateData(connectionObj, tableName, data, filters) {
             query = query + ' WHERE ';
             for (let i = 0; i < filters.length; i++) {
                 const element = filters[i];
+                const safeColName = safeSqlString(element.column_name);
                 if (i == 0) {
-                    query = query + element.column_name + ' ' + element.operation + ' ' + `$${data_length.length + i + 1}`;
+                    query = query + safeColName + ' ' + element.operation + ' ' + `$${data_length.length + i + 1}`;
                 }
                 else {
-                    query = query + ' AND ' + element.column_name + ' ' + element.operation + ' ' + ` $${data_length.length + i + 1} `;
+                    query = query + ' AND ' + safeColName + ' ' + element.operation + ' ' + ` $${data_length.length + i + 1} `;
                 }
                 values.push(element.value);
             }
@@ -184,8 +253,67 @@ export function updateData(connectionObj, tableName, data, filters) {
         }
     });
 }
+export function bulkUpdateData(connectionObj, items) {
+    return new Promise(async (resolve, reject) => {
+        const pool = new Pool(connectionObj);
+        if (!items || items.length === 0) {
+            return reject(new Error('No items provided for bulk update'));
+        }
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            let allUpdated = [];
+            for (const item of items) {
+                if (!item || !item.table || !item.data || !item.filters || item.filters.length === 0)
+                    continue;
+                const tableName = safeSqlString(item.table);
+                const data = item.data;
+                const filters = item.filters;
+                // Build SET clause
+                let set_values = "";
+                let values = [];
+                Object.keys(data).map((key, i) => {
+                    const safeKey = safeSqlString(key);
+                    set_values += `${safeKey} = $${i + 1},`;
+                    values.push(data[key]);
+                });
+                set_values = set_values.replace(/,(?=[^,]*$)/, '');
+                // Build WHERE clause
+                let query = `UPDATE ${tableName} SET ${set_values}`;
+                const data_length = Object.keys(data).length;
+                if (filters && filters.length) {
+                    query = query + ' WHERE ';
+                    for (let i = 0; i < filters.length; i++) {
+                        const element = filters[i];
+                        const safeColName = safeSqlString(element.column_name);
+                        if (i == 0) {
+                            query = query + safeColName + ' ' + element.operation + ' ' + `$${data_length + i + 1}`;
+                        }
+                        else {
+                            query = query + ' AND ' + safeColName + ' ' + element.operation + ' ' + ` $${data_length + i + 1} `;
+                        }
+                        values.push(element.value);
+                    }
+                }
+                query = query + ' RETURNING *';
+                const response = await client.query(query, values);
+                allUpdated = allUpdated.concat(response.rows);
+            }
+            await client.query('COMMIT');
+            resolve({ success: true, message: 'Bulk update successful', data: allUpdated });
+        }
+        catch (error) {
+            await client.query('ROLLBACK');
+            reject(error);
+        }
+        finally {
+            client.release();
+        }
+    });
+}
 export function deleteData(connectionObj, tableName, filters) {
     return new Promise(async (resolve, reject) => {
+        tableName = safeSqlString(tableName);
         const pool = new Pool(connectionObj);
         if (!filters || filters.length == 0) {
             reject("At least one filter must be there");
@@ -197,11 +325,12 @@ export function deleteData(connectionObj, tableName, filters) {
         if (filters && filters.length) {
             for (let i = 0; i < filters.length; i++) {
                 const element = filters[i];
+                const safeColName = safeSqlString(element.column_name);
                 if (i == 0) {
-                    query = query + element.column_name + ' ' + element.operation + ' ' + `$${i + 1}`;
+                    query = query + safeColName + ' ' + element.operation + ' ' + `$${i + 1}`;
                 }
                 else {
-                    query = query + ' AND ' + element.column_name + ' ' + element.operation + ' ' + ` $${i + 1} `;
+                    query = query + ' AND ' + safeColName + ' ' + element.operation + ' ' + ` $${i + 1} `;
                 }
                 values.push(element.value);
             }
@@ -222,4 +351,13 @@ export function deleteData(connectionObj, tableName, filters) {
             client.release();
         }
     });
+}
+function safeSqlString(value) {
+    if (!value)
+        return value;
+    return value
+        .replace(/["']/g, "")
+        .replace(/[:;]/g, "")
+        .replace(/\s+/g, "") // Remove spaces
+        .replace(/\b(UNION|INSERT|UPDATE|DELETE|DROP|JOIN|TRUNCATE|SELECT)\b/gi, "");
 }
