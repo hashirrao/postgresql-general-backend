@@ -109,96 +109,69 @@ function insertBulkData(connectionObj, items) {
 }
 async function getData(connectionObj, tableName, columnNames, filters, order_by, limit, offset) {
     return new Promise(async (resolve, reject) => {
-        tableName = safeSqlString(tableName);
         const pool = new Pool(connectionObj);
         let values = [];
         let query = `SELECT `;
-        if (columnNames && columnNames.length > 0) {
-            const safeColumns = columnNames.map(col => safeSqlString(col));
-            query += `${safeColumns.join(', ')} FROM ${tableName}`;
+        // Columns
+        if (columnNames?.length > 0) {
+            query += `${columnNames.join(', ')} FROM ${tableName}`;
         }
         else {
             query += `* FROM ${tableName}`;
         }
-        if (filters && filters.length) {
+        // WHERE for main query
+        if (filters?.length > 0) {
             query += ' WHERE ';
             for (let i = 0; i < filters.length; i++) {
                 const element = filters[i];
-                const safeColName = safeSqlString(element.column_name);
                 if (element.operation === "IN") {
-                    if (i === 0) {
-                        query += `${safeColName} ${element.operation} ${element.value}`;
-                    }
-                    else {
-                        query += ` AND ${safeColName} ${element.operation} ${element.value}`;
-                    }
+                    query += `${i === 0 ? '' : ' AND '}${element.column_name} IN ${element.value}`;
                 }
                 else {
-                    if (i === 0) {
-                        query += `${safeColName} ${element.operation} $${i + 1}`;
-                    }
-                    else {
-                        query += ` AND ${safeColName} ${element.operation} $${i + 1}`;
-                    }
-                    if (element.operation.toLowerCase() === 'like') {
-                        values.push(`%${element.value}%`);
-                    }
-                    else {
-                        values.push(element.value);
-                    }
+                    const placeholder = `$${values.length + 1}`;
+                    query += `${i === 0 ? '' : ' AND '}${element.column_name} ${element.operation} ${placeholder}`;
+                    values.push(element.operation.toLowerCase() === "like"
+                        ? `%${element.value}%`
+                        : element.value);
                 }
             }
         }
-        if (order_by) {
-            const safeOrderBy = safeSqlString(order_by);
-            query += ` ORDER BY ${safeOrderBy} ASC`;
-        }
-        if (limit) {
+        if (order_by)
+            query += ` ORDER BY ${order_by} ASC`;
+        if (limit)
             query += ` LIMIT ${limit}`;
-        }
-        if (offset) {
+        if (offset)
             query += ` OFFSET ${offset}`;
+        // COUNT QUERY
+        let count_values = [];
+        let count_query = `SELECT COUNT(*) AS total_rows FROM ${tableName}`;
+        if (filters?.length > 0) {
+            count_query += ' WHERE ';
+            for (let i = 0; i < filters.length; i++) {
+                const element = filters[i];
+                if (element.operation === "IN") {
+                    count_query += `${i === 0 ? '' : ' AND '}${element.column_name} IN ${element.value}`;
+                }
+                else {
+                    const placeholder = `$${count_values.length + 1}`;
+                    count_query += `${i === 0 ? '' : ' AND '}${element.column_name} ${element.operation} ${placeholder}`;
+                    count_values.push(element.value);
+                }
+            }
         }
-        // Execute the query
+        // EXECUTE
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
-            let count_values = [];
-            let count_query = `SELECT COUNT(*) as total_rows FROM ${tableName}`;
-            if (filters && filters.length > 0) {
-                count_query += ' WHERE ';
-                for (let i = 0; i < filters.length; i++) {
-                    const element = filters[i];
-                    const safeColName = safeSqlString(element.column_name);
-                    if (element.operation === "IN") {
-                        if (i === 0) {
-                            count_query += `${safeColName} ${element.operation} ${element.value}`;
-                        }
-                        else {
-                            count_query += ` AND ${safeColName} ${element.operation} ${element.value}`;
-                        }
-                    }
-                    else {
-                        if (i === 0) {
-                            count_query += `${safeColName} ${element.operation} $${i + 1}`;
-                        }
-                        else {
-                            count_query += ` AND ${safeColName} ${element.operation} $${i + 1}`;
-                        }
-                        count_values.push(element.value);
-                    }
-                }
-            }
             const count_response = await client.query(count_query, count_values);
-            let response = await client.query(query, values);
+            const response = await client.query(query, values);
             await client.query('COMMIT');
-            const resp = {
+            resolve({
                 success: true,
                 message: "Data found successfully...!",
                 data: response.rows,
                 total_rows: count_response.rows[0].total_rows
-            };
-            resolve(resp);
+            });
         }
         catch (error) {
             await client.query('ROLLBACK');
